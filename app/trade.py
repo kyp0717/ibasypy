@@ -1,27 +1,17 @@
 from dataclasses import dataclass
 from enum import Enum
 
-# from ib_async import IB, Contract, Order
-# from ib_async import IB, Contract, Order
-import ib_async as iba
-
-# from ibapi.client import Contract, Order
+from ib_client import IBClient
 
 
-class TradeSignal(Enum):
-    BUY = 1
-    SELL = 2
-    HOLD = 3
-
-
-class Stage(Enum):
-    CONNECT: 1
+class STAGE(Enum):
+    CONNECT = 1
     ENTRY = 2
-    CONFIRM_ENTRY = 3
-    HOLD: 4
+    CHECK_ENTRY = 3
+    HOLD = 4
     EXIT = 5
-    CONFIRM_EXIT = 6
-    DISCONNECT: 7
+    CHECK_EXIT = 6
+    DISCONNECT = 7
 
 
 @dataclass
@@ -38,10 +28,10 @@ class TrackId:
 
 
 class Trade:
-    def __init__(self, symbol, position: int):
+    def __init__(self, symbol, position: int, client: IBClient):
         self.symbol: str = symbol
-        self.client = self.start_client()
-        self.stage: Stage = None
+        self.client = client
+        self.stage: STAGE = None
         self.size: int = 0
         self.position = position
         self.stop_loss: float = 0.0
@@ -50,39 +40,4 @@ class Trade:
         self.conid = None
         self.unreal_pnlval: float = 0.0
         self.unreal_pnlpct: float = 0.0
-
-    def start_client(self) -> iba.IB:
-        ib = iba.IB()
-        ib.connect()
-        ib.reqMarketDataType(1)
-        return ib
-
-    def define_contract(self) -> iba.Contract:
-        contract = Contract(self.symbol, se)
-        contract.symbol = self.symbol
-        contract.secType = "STK"
-        contract.currency = "USD"
-        contract.exchange = "SMART"
-        contract.primaryExchange = "NASDAQ"
-        return contract
-
-    # order is define in the tickPrice function
-    # price dependency
-    def create_order_fn(self, reqId: int, action: str, ordertype: str):
-        order = Order()
-
-        def create_order(lmtprice: float):
-            order.symbol = self.symbol
-            order.orderId = reqId
-            order.action = action
-            order.orderType = ordertype
-            order.lmtPrice = lmtprice
-            order.totalQuantity = self.position
-            # order.outsideRth = False
-            order.outsideRth = True
-            return order
-
-        return create_order
-
-    def buy_limit():
-        pass
+        # TODO: Add order history to so that we can confirm order status

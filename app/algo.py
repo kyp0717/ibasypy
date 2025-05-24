@@ -4,10 +4,9 @@ import queue
 import sys
 import time
 
-from loguru import logger
-
 import key_listener as kl
 from ib_client import IBClient, qu_ask, qu_bid, qu_ctx, qu_orderstatus
+from loguru import logger
 from trade import Trade
 
 
