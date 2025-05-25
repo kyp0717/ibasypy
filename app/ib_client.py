@@ -6,21 +6,16 @@ import queue
 from ibapi.client import EClient
 from ibapi.wrapper import ContractDetails, EWrapper
 from loguru import logger
-from rich.console import Console
-
-# use to pass msg btw algo module to IB App
-algo_request = queue.Queue()
 
 # messages coming from TWS (which is coming from remote server)
-tws_response = queue.Queue()
 qu_ask = queue.Queue()
-qu_ctx = queue.Queue()
+qu_error = queue.Queue()
+qu_contract = queue.Queue()
 qu_bid = queue.Queue()
 qu_orderstatus = queue.Queue()
 order_history = {}
 qu_pnl = queue.Queue()
 qu_pnlsingle = queue.Queue()
-console = Console()
 
 
 class IBClient(EWrapper, EClient):
@@ -38,14 +33,17 @@ class IBClient(EWrapper, EClient):
         self.order_id += 1
 
     def error(self, reqId, errorCode, errorString, advanceOrderReject):
-        logger.error(f" --- ReqId: {reqId} --- ")
-        logger.error(f"ErrorCode: {errorCode}, ErrorString: {errorString}")
-        logger.error(f"ErrorString: {errorString}")
-        logger.error(f"Order Reject: {advanceOrderReject} ")
+        msg = {
+            "reqId": reqId,
+            "errorCode": errorCode,
+            "errorString": errorString,
+            "orderReject": advanceOrderReject,
+        }
+        qu_error.put(msg)
 
     def contractDetails(self, reqId, contractDetails: ContractDetails):
         msg = {"reqId": reqId, "conId": contractDetails.contract.conId}
-        qu_ctx.put(msg)
+        qu_contract.put(msg)
 
     def orderStatus(
         self,
@@ -81,7 +79,8 @@ class IBClient(EWrapper, EClient):
             "shares": execution.shares,
             "price": execution.price,
         }
-        tws_response.put(msg)
+        _ = msg
+        # tws_response.put(msg)
 
     def tickPrice(self, reqId, tickType, price, attrib):
         timestamp = datetime.datetime.now()
@@ -96,7 +95,6 @@ class IBClient(EWrapper, EClient):
             qu_ask.put(msg)
         if tickType == 1:
             qu_bid.put(msg)
-        # logger.info(msg)
 
     def cancelMarketData(self, ticker_id):
         if ticker_id in self.active_streams:

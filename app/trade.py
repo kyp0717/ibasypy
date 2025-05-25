@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from ib_client import IBClient
+import ibapi as ibc
 
 
 class STAGE(Enum):
@@ -28,9 +28,9 @@ class TrackId:
 
 
 class Trade:
-    def __init__(self, symbol, position: int, client: IBClient):
+    def __init__(self, symbol, position: int):
         self.symbol: str = symbol
-        self.client = client
+        self.contract = None
         self.stage: STAGE = None
         self.size: int = 0
         self.position = position
@@ -41,3 +41,28 @@ class Trade:
         self.unreal_pnlval: float = 0.0
         self.unreal_pnlpct: float = 0.0
         # TODO: Add order history to so that we can confirm order status
+
+    def define_contract(self):
+        contract = ibc.Contract()
+        contract.symbol = self.symbol
+        contract.secType = "STK"
+        contract.currency = "USD"
+        contract.exchange = "SMART"
+        contract.primaryExchange = "NASDAQ"
+        self.contract = contract
+
+    def create_order_fn(self, reqId: int, action: str, ordertype: str):
+        order = ibc.Order()
+
+        def create_order(lmtprice: float):
+            order.symbol = self.trade.symbol
+            order.orderId = reqId
+            order.action = action
+            order.orderType = ordertype
+            order.lmtPrice = lmtprice
+            order.totalQuantity = self.trade.position
+            # order.outsideRth = False
+            order.outsideRth = True
+            return order
+
+        return create_order
