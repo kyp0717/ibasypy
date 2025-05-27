@@ -43,7 +43,7 @@ class Trade:
         # TODO: Add order history to so that we can confirm order status
 
     def define_contract(self):
-        contract = ibc.Contract()
+        contract = ibc.client.Contract()
         contract.symbol = self.symbol
         contract.secType = "STK"
         contract.currency = "USD"
@@ -52,17 +52,17 @@ class Trade:
         self.contract = contract
 
     def create_order_fn(self, reqId: int, action: str, ordertype: str):
-        order = ibc.Order()
+        order = ibc.client.Order()
 
         def create_order(lmtprice: float):
-            order.symbol = self.trade.symbol
+            order.symbol = self.symbol
             order.orderId = reqId
             order.action = action
             order.orderType = ordertype
             order.lmtPrice = lmtprice
-            order.totalQuantity = self.trade.position
-            # order.outsideRth = False
-            order.outsideRth = True
+            order.totalQuantity = self.position
+            order.outsideRth = False
+            # order.outsideRth = True
             return order
 
         return create_order
