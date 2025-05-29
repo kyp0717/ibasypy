@@ -21,14 +21,19 @@ class PriceChange:
 
 
 @dataclass
-class TrackId:
+class TWSReqId:
+    initial: int = None
+    contract: int = None
     buy: int = None
     sell: int = None
-    reqMktData: int = None
+    market_data: int = None
+    cancel: int = None
+    liquidate: int = None
 
 
 class Trade:
     def __init__(self, symbol, position: int):
+        self.ids: TWSReqId = TWSReqId()
         self.symbol: str = symbol
         self.contract = None
         self.stage: STAGE = None
@@ -38,8 +43,10 @@ class Trade:
         self.entry_price: float = 0.0
         self.exit_price: float = 0.0
         self.conid = None
+
         self.unreal_pnlval: float = 0.0
         self.unreal_pnlpct: float = 0.0
+
         # TODO: Add order history to so that we can confirm order status
 
     def define_contract(self):
@@ -61,8 +68,8 @@ class Trade:
             order.orderType = ordertype
             order.lmtPrice = lmtprice
             order.totalQuantity = self.position
-            order.outsideRth = False
-            # order.outsideRth = True
+            # order.outsideRth = False
+            order.outsideRth = True
             return order
 
         return create_order

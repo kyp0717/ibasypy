@@ -1,3 +1,4 @@
+import argparse
 import cmd
 import queue
 import sys
@@ -8,6 +9,16 @@ import key_listener as kl
 from ib_client import IBClient, qu_ask, qu_bid, qu_contract, qu_orderstatus
 from rich.console import Console
 from trade import STAGE, Trade
+from tui import TUI
+
+# Create an ArgumentParser object
+parser = argparse.ArgumentParser(description="get symbol and quantity")
+
+# Add arguments
+parser.add_argument("symbol", type=str, help="symbol")
+parser.add_argument("size", type=int, help="size")
+# Parse the arguments
+args = parser.parse_args()
 
 cs = Console()
 cs.clear()
@@ -25,51 +36,64 @@ ibclient_thread.start()
 while client.order_id is None:
     time.sleep(0.5)
 
-asset = cs.input("Define asset: ")
-t = Trade(symbol=asset, position=10)
+
+t = Trade(symbol=args.symbol, position=args.size)
+t.ids.initial = client.order_id
+t.tws_ids.initial = client.order_id
 t.define_contract()
 
 cmd = cmd.Cmd(client=client, trade=t)
 
-client.nextId()
-client.reqContractDetails(client.order_id, contract=t.contract)
+cmd.get_contract()
+t.ids.contract = client.order_id
 # get method is blocking
-c = qu_contract.get(timeout=5)
+c = qu_contract.get(timeout=2)
 t.conid = c["conId"]
 t.define_contract()
 # request market data
-client.reqMktData(client.order_id, t.contract, "", False, False, [])
-t.stage = STAGE.ENTRY
+cmd.stream_mkt_data()
+t.ids.market_data = client.order_id
+
+tui = TUI(console=cs, trade=t)
 
 while True:
     # TODO: capture error message
     # TODO: capture order history
+    tui.show()
     match t.stage:
         case STAGE.ENTRY:
             try:
                 msg = qu_ask.get(timeout=2)
-                cs.print(f"buy {t.symbol} at {msg['price']}? y/n ", end="")
+                cs.print(
+                    f"\n >>> buy {t.symbol} at {msg['price']}? y/n ",
+                    end="",
+                )
                 input = kl.get_single_key()
-                # cs.print("\n")
                 if input == "y":
                     cmd.buy_limit(msg["price"])
+                    t.ids.buy = client.order_id
+                    cs.print(
+                        f" reqid {client.order_id} >>> buy limit order submitted ",
+                        end="",
+                    )
                     t.stage = STAGE.CHECK_ENTRY
                 else:
                     # time.sleep(1)
                     continue
             except queue.Empty:
                 # TODO: provide the option to cancel the order and exit app
-                cs.print("ask queue empty")
+                cs.print(" [ TWS ] ask queue empty")
                 continue
         case STAGE.CHECK_ENTRY:
             try:
                 ordstat = qu_orderstatus.get(timeout=2)
+                cs.print(f" reqid {client.order_id} >>> Status: {ordstat['status']} ")
+                cs.print(
+                    f" reqid {client.order_id} >>> Entry Price: {ordstat['avgFillPrice']} "
+                )
                 if ordstat["status"] == "Filled":
-                    cs.print(f"{client.order_id} Status: {ordstat['status']} ")
-                    cs.print(
-                        f"{client.order_id} Entry Price: {ordstat['avgFillPrice']} "
-                    )
                     t.entry_price = ordstat["avgFillPrice"]
+                    tui.show_entry()
                     t.stage = STAGE.HOLD
                 else:
                     cs.print("order not filled")
@@ -82,11 +106,17 @@ while True:
         case STAGE.HOLD:
             try:
                 msg = qu_bid.get(timeout=2)
-                cs.print(f"sell {t.symbol} at {msg['price']}? y/n ", end="")
+                t.unreal_pnlval = t.position * (msg["price"] - t.entry_price)
+                t.unreal_pnlpct = (msg["price"] - t.entry_price) / t.entry_price
+                cs.print(f"\n >>> sell {t.symbol} at {msg['price']}? y/n ", end="")
                 input = kl.get_single_key()
                 # cs.print("\n")
                 if input == "y":
                     cmd.sell_limit(msg["price"])
+                    cs.print(
+                        f" reqid {client.order_id} >>> sell limit order submitted ",
+                        end="",
+                    )
                     t.stage = STAGE.CHECK_EXIT
                 else:
                     time.sleep(1)
@@ -98,9 +128,11 @@ while True:
             try:
                 ordstat = qu_orderstatus.get(timeout=2)
                 if ordstat["status"] == "Filled":
-                    cs.print(f"{client.order_id} Status: {ordstat['status']} ")
                     cs.print(
-                        f"{client.order_id} Entry Price: {ordstat['avgFillPrice']} "
+                        f" reqid {client.order_id} >>> Status: {ordstat['status']} "
+                    )
+                    cs.print(
+                        f" reqid {client.order_id} >>> Exit Price: {ordstat['avgFillPrice']} "
                     )
                     t.exit_price = ordstat["avgFillPrice"]
                     t.stage = STAGE.DISCONNECT

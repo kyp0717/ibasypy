@@ -1,5 +1,5 @@
 from ib_client import IBClient
-from trade import Trade
+from trade import STAGE, Trade
 
 
 class Cmd:
@@ -9,6 +9,7 @@ class Cmd:
 
     def buy_limit(self, price):
         self.client.nextId()
+        self.trade.tws_ids.buy = self.client.order_id
         ordfn = self.trade.create_order_fn(
             reqId=self.client.order_id, action="BUY", ordertype="LMT"
         )
@@ -17,11 +18,24 @@ class Cmd:
 
     def sell_limit(self, price):
         self.client.nextId()
+        self.trade.tws_ids.sell = self.client.order_id
         ordfn = self.trade.create_order_fn(
             reqId=self.client.order_id, action="SELL", ordertype="LMT"
         )
         ord = ordfn(price)
         self.client.placeOrder(self.client.order_id, self.trade.contract, ord)
 
-    # order is define in the tickPrice function
-    # price dependency
+    def get_contract(self):
+        self.client.nextId()
+        self.trade.tws_ids.contract = self.client.order_id
+        self.client.reqContractDetails(
+            self.client.order_id, contract=self.trade.contract
+        )
+
+    def stream_mkt_data(self):
+        self.client.nextId()
+        self.trade.tws_ids.market_data = self.client.order_id
+        self.client.reqMktData(
+            self.client.order_id, self.trade.contract, "", False, False, []
+        )
+        self.trade.stage = STAGE.ENTRY
