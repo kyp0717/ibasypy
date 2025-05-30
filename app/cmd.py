@@ -9,7 +9,8 @@ class Cmd:
 
     def buy_limit(self, price):
         self.client.nextId()
-        self.trade.tws_ids.buy = self.client.order_id
+        self.trade.ids.buy = self.client.order_id
+        # self.trade.entry_price = price
         ordfn = self.trade.create_order_fn(
             reqId=self.client.order_id, action="BUY", ordertype="LMT"
         )
@@ -18,7 +19,8 @@ class Cmd:
 
     def sell_limit(self, price):
         self.client.nextId()
-        self.trade.tws_ids.sell = self.client.order_id
+        self.trade.ids.sell = self.client.order_id
+        # self.trade.exit_price = price
         ordfn = self.trade.create_order_fn(
             reqId=self.client.order_id, action="SELL", ordertype="LMT"
         )
@@ -27,14 +29,14 @@ class Cmd:
 
     def get_contract(self):
         self.client.nextId()
-        self.trade.tws_ids.contract = self.client.order_id
+        self.trade.ids.contract = self.client.order_id
         self.client.reqContractDetails(
             self.client.order_id, contract=self.trade.contract
         )
 
     def stream_mkt_data(self):
         self.client.nextId()
-        self.trade.tws_ids.market_data = self.client.order_id
+        self.trade.ids.market_data = self.client.order_id
         self.client.reqMktData(
             self.client.order_id, self.trade.contract, "", False, False, []
         )

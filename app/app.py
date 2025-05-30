@@ -36,10 +36,8 @@ ibclient_thread.start()
 while client.order_id is None:
     time.sleep(0.5)
 
-
 t = Trade(symbol=args.symbol, position=args.size)
 t.ids.initial = client.order_id
-t.tws_ids.initial = client.order_id
 t.define_contract()
 
 cmd = cmd.Cmd(client=client, trade=t)
@@ -64,91 +62,63 @@ while True:
         case STAGE.ENTRY:
             try:
                 msg = qu_ask.get(timeout=2)
-                cs.print(
-                    f"\n >>> buy {t.symbol} at {msg['price']}? y/n ",
-                    end="",
-                )
+                tui.buy(msg)
                 input = kl.get_single_key()
+                cs.print(input)
                 if input == "y":
                     cmd.buy_limit(msg["price"])
                     t.ids.buy = client.order_id
                     cs.print(
-                        f" reqid {client.order_id} >>> buy limit order submitted ",
+                        f"\n [ reqid {client.order_id} ] buy limit order submitted ",
                         end="",
                     )
-                    t.stage = STAGE.CHECK_ENTRY
-                else:
-                    # time.sleep(1)
-                    continue
+                    t.stage = STAGE.ENTERING
             except queue.Empty:
                 # TODO: provide the option to cancel the order and exit app
-                cs.print(" [ TWS ] ask queue empty")
-                continue
-        case STAGE.CHECK_ENTRY:
+                cs.print(f" [ reqid {client.order_id} ]  ask queue empty")
+        case STAGE.ENTERING:
             try:
                 ordstat = qu_orderstatus.get(timeout=2)
-                cs.print(f" reqid {client.order_id} >>> Status: {ordstat['status']} ")
-                cs.print(
-                    f" reqid {client.order_id} >>> Entry Price: {ordstat['avgFillPrice']} "
-                )
-                if ordstat["status"] == "Filled":
-                    t.entry_price = ordstat["avgFillPrice"]
-                    tui.show_entry()
-                    t.stage = STAGE.HOLD
-                else:
-                    cs.print("order not filled")
-                    cs.print(ordstat)
-                    time.sleep(1)
-                    continue
+                t.stage = tui.check_entry(client.order_id, ordstat)
             except queue.Empty:
-                cs.print("order status queue empty")
-                continue
+                cs.print(f" [ reqid {client.order_id} ]order status queue empty")
         case STAGE.HOLD:
             try:
                 msg = qu_bid.get(timeout=2)
                 t.unreal_pnlval = t.position * (msg["price"] - t.entry_price)
                 t.unreal_pnlpct = (msg["price"] - t.entry_price) / t.entry_price
-                cs.print(f"\n >>> sell {t.symbol} at {msg['price']}? y/n ", end="")
+                tui.sell(msg)
                 input = kl.get_single_key()
-                # cs.print("\n")
+                cs.print(input)
                 if input == "y":
                     cmd.sell_limit(msg["price"])
                     cs.print(
-                        f" reqid {client.order_id} >>> sell limit order submitted ",
+                        f"\n [ reqid {client.order_id} ] sell limit order submitted ",
                         end="",
                     )
-                    t.stage = STAGE.CHECK_EXIT
+                    t.stage = STAGE.EXITING
                 else:
                     time.sleep(1)
-                    continue
             except queue.Empty:
                 cs.print("bid queue empty")
-                continue
-        case STAGE.CHECK_EXIT:
+        case STAGE.EXITING:
             try:
                 ordstat = qu_orderstatus.get(timeout=2)
-                if ordstat["status"] == "Filled":
-                    cs.print(
-                        f" reqid {client.order_id} >>> Status: {ordstat['status']} "
-                    )
-                    cs.print(
-                        f" reqid {client.order_id} >>> Exit Price: {ordstat['avgFillPrice']} "
-                    )
-                    t.exit_price = ordstat["avgFillPrice"]
-                    t.stage = STAGE.DISCONNECT
-                else:
-                    cs.print("order not filled")
-                    cs.print(ordstat)
-                    time.sleep(1)
-                    continue
+                t.stage = tui.check_exit(client.order_id, ordstat)
             except queue.Empty:
-                cs.print("order status queue empty")
-                continue
-        case STAGE.DISCONNECT:
-            s = cs.input("Shutdown Algo? (y/n)")
+                cs.print(f" [ reqid {client.order_id} ] order status queue empty")
+        case STAGE.EXIT:
+            tui.show()
+            s = cs.input(" >>> Disconnect from client? (y/n)")
             if s == "y":
                 client.disconnect()
-                cs.print("Disconnecting from TWS...")
+                t.stage = STAGE.DISCONNECT
+                cs.print(" [ Algo ] Disconnecting from TWS...")
+        case STAGE.DISCONNECT:
+            tui.show()
+            s = cs.input(" >>> Shutdown Algo? (y/n)")
+            if s == "y":
+                cs.print(" [ Algo ] Shutting down!")
                 break
 
 ibclient_thread.join()

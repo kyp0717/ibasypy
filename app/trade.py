@@ -7,10 +7,10 @@ import ibapi as ibc
 class STAGE(Enum):
     CONNECT = 1
     ENTRY = 2
-    CHECK_ENTRY = 3
+    ENTERING = 3
     HOLD = 4
     EXIT = 5
-    CHECK_EXIT = 6
+    EXITING = 6
     DISCONNECT = 7
 
 
