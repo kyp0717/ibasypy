@@ -61,7 +61,7 @@ while True:
     match t.stage:
         case STAGE.ENTRY:
             try:
-                msg = qu_ask.get(timeout=2)
+                msg = qu_ask.get(timeout=1)
                 tui.buy(msg)
                 input = kl.get_single_key()
                 cs.print(input)
@@ -75,13 +75,16 @@ while True:
                     t.stage = STAGE.ENTERING
             except queue.Empty:
                 # TODO: provide the option to cancel the order and exit app
-                cs.print(f" [ reqid {client.order_id} ]  ask queue empty")
+                cs.print(f" [ reqid {client.order_id} ] ask queue empty")
+                cs.print(f" [ reqid {client.order_id} ] waiting for ask price")
+                time.sleep(1)
         case STAGE.ENTERING:
             try:
-                ordstat = qu_orderstatus.get(timeout=2)
+                ordstat = qu_orderstatus.get(timeout=1)
                 t.stage = tui.check_entry(client.order_id, ordstat)
             except queue.Empty:
-                cs.print(f" [ reqid {client.order_id} ]order status queue empty")
+                cs.print(f" [ reqid {client.order_id} ] order status queue empty")
+                time.sleep(0.5)
         case STAGE.HOLD:
             try:
                 msg = qu_bid.get(timeout=2)
@@ -98,24 +101,28 @@ while True:
                     )
                     t.stage = STAGE.EXITING
                 else:
-                    time.sleep(1)
+                    continue
+                    # time.sleep(1)
             except queue.Empty:
-                cs.print("bid queue empty")
+                cs.print(f" [ reqid {client.order_id} ] bid queue empty")
+                cs.print(f" [ reqid {client.order_id} ] waiting for bid price")
+                time.sleep(1)
         case STAGE.EXITING:
             try:
-                ordstat = qu_orderstatus.get(timeout=2)
+                ordstat = qu_orderstatus.get(timeout=1)
                 t.stage = tui.check_exit(client.order_id, ordstat)
             except queue.Empty:
                 cs.print(f" [ reqid {client.order_id} ] order status queue empty")
+                time.sleep(1)
         case STAGE.EXIT:
-            tui.show()
+            # tui.show()
             s = cs.input(" >>> Disconnect from client? (y/n)")
             if s == "y":
                 client.disconnect()
                 t.stage = STAGE.DISCONNECT
                 cs.print(" [ Algo ] Disconnecting from TWS...")
         case STAGE.DISCONNECT:
-            tui.show()
+            # tui.show()
             s = cs.input(" >>> Shutdown Algo? (y/n)")
             if s == "y":
                 cs.print(" [ Algo ] Shutting down!")

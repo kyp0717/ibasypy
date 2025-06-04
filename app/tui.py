@@ -46,11 +46,8 @@ class TUI:
         h = f" [ ReqID {self.tr.ids.sell} ] Exit Price: {self.tr.exit_price} "
         self.cs.print(h)
 
-    def show_hold(self):
-        h = f" [ ReqID {self.tr.ids.buy} ] Entry Price: {self.tr.entry_price} "
-        self.cs.print(h)
-
     def show(self):
+        self.cs.clear()
         match self.tr.stage:
             case STAGE.ENTRY:
                 h = " [ Trade Status ] Entry "
@@ -77,6 +74,13 @@ class TUI:
                 self.show_pnl()
             case STAGE.EXIT:
                 h = " [ Trade Status ] SOLD"
+                self.show_heading()
+                self.cs.print(h)
+                self.show_entry()
+                self.show_exit()
+                self.show_pnl()
+            case STAGE.DISCONNECT:
+                h = " [ Trade Status ] Disconnect"
                 self.show_heading()
                 self.cs.print(h)
                 self.show_entry()
